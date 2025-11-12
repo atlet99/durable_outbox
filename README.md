@@ -3,7 +3,6 @@
 **Reliable offline queue library with guaranteed delivery for Flutter/Dart applications.**
 
 [![pub package](https://img.shields.io/pub/v/durable_outbox.svg)](https://pub.dev/packages/durable_outbox)
-
 [![License: BSD 3-Clause](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](LICENSE)
 
 `durable_outbox` is a robust, cross-platform offline queue library that ensures reliable delivery of events and commands to your backend, even when the network is unavailable. Built with the outbox pattern, it provides at-least-once delivery guarantees with idempotency support.
