@@ -12,6 +12,22 @@ import 'transport/transport.dart';
 const _uuid = Uuid();
 
 /// Main facade for durable outbox functionality.
+///
+/// Provides a reliable queue for sending messages with guaranteed delivery,
+/// retry logic, and idempotency support.
+///
+/// Example:
+/// ```dart
+/// final outbox = DurableOutbox(
+///   store: SqliteStore(dbPath: '/path/to/outbox.db'),
+///   transport: HttpTransport(
+///     endpoint: Uri.parse('https://api.example.com/outbox'),
+///     authHeaders: () async => {'Authorization': 'Bearer token'},
+///     client: httpClient,
+///   ),
+/// );
+/// await outbox.init();
+/// ```
 class DurableOutbox {
   DurableOutbox({
     required this.store,
@@ -54,7 +70,18 @@ class DurableOutbox {
 
   /// Enqueues a new entry for delivery.
   ///
-  /// Returns the entry ID.
+  /// The entry will be processed according to the configured retry policy
+  /// and transport settings.
+  ///
+  /// Returns the unique entry ID.
+  ///
+  /// Parameters:
+  /// - [channel]: Category name for this entry (e.g., 'orders', 'analytics')
+  /// - [payload]: Data to be sent (will be JSON-encoded by HttpTransport)
+  /// - [headers]: Optional HTTP headers
+  /// - [idempotencyKey]: Optional key for preventing duplicate processing
+  /// - [priority]: Priority level (higher = processed first)
+  /// - [notBefore]: Optional delay before processing starts
   Future<String> enqueue({
     required String channel,
     required Object payload,

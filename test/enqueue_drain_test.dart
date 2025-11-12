@@ -339,7 +339,8 @@ void main() {
       // Process multiple times to allow retries
       for (var i = 0; i < 5; i++) {
         await retryOutbox.drain();
-        await Future.delayed(const Duration(milliseconds: 50));
+        // Wait for backoff delay to allow next retry
+        await Future.delayed(const Duration(milliseconds: 600));
       }
 
       // Should eventually succeed

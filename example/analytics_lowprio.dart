@@ -3,7 +3,6 @@ import 'dart:io' as io;
 
 import 'package:durable_outbox/durable_outbox.dart';
 import 'package:path/path.dart' as path;
-import 'package:path_provider/path_provider.dart' as path_provider;
 
 /// Simple HTTP client implementation.
 class SimpleHttpClient implements HttpClient {
@@ -49,8 +48,8 @@ class SimpleHttpClient implements HttpClient {
 }
 
 Future<void> main() async {
-  final appDir = await path_provider.getApplicationDocumentsDirectory();
-  final dbPath = path.join(appDir.path, 'analytics_outbox.db');
+  final tempDir = io.Directory.systemTemp;
+  final dbPath = path.join(tempDir.path, 'analytics_outbox.db');
 
   final outbox = DurableOutbox(
     store: SqliteStore(dbPath: dbPath),

@@ -1,6 +1,6 @@
 name: durable_outbox
 description: A reliable offline queue library with guaranteed delivery for Flutter/Dart applications.
-version: 0.1.0
+version: 0.1.1
 homepage: https://github.com/atlet99/durable_outbox
 repository: https://github.com/atlet99/durable_outbox
 issue_tracker: https://github.com/atlet99/durable_outbox/issues
@@ -16,8 +16,7 @@ environment:
 dependencies:
   uuid: ^4.5.2
   path: ^1.9.1
-  path_provider: ^2.1.5
-  sqflite: ^2.4.2
+  sqlite3: ^2.9.4
 
 dev_dependencies:
   lints: ^6.0.0

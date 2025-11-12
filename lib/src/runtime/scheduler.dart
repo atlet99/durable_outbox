@@ -76,7 +76,44 @@ class OutboxScheduler {
 
   /// Manually triggers a processing tick.
   Future<void> drain() async {
-    await _tick();
+    // Temporarily enable processing for drain
+    final wasRunning = _isRunning;
+    final wasPaused = _isPaused;
+    if (!_isRunning) {
+      _isRunning = true;
+      _isPaused = false;
+    }
+    try {
+      // Keep processing until no more entries are available
+      int previousProcessingCount = -1;
+      while (true) {
+        await _tick();
+        // Wait for current batch to complete
+        while (_processing.isNotEmpty) {
+          await Future.delayed(const Duration(milliseconds: 10));
+        }
+        // Check if there are more entries to process
+        final entries = await store.pickForProcessing(
+          config.concurrency,
+          DateTime.now(),
+        );
+        if (entries.isEmpty) {
+          break; // No more entries to process
+        }
+        // Prevent infinite loop if processing count doesn't change
+        if (_processing.length == previousProcessingCount &&
+            _processing.isEmpty) {
+          break;
+        }
+        previousProcessingCount = _processing.length;
+      }
+    } finally {
+      // Restore original state
+      if (!wasRunning) {
+        _isRunning = false;
+        _isPaused = wasPaused;
+      }
+    }
   }
 
   Future<void> _tick() async {
@@ -190,6 +227,9 @@ class OutboxScheduler {
 }
 
 /// Configuration for outbox behavior.
+///
+/// Controls how the outbox processes entries, including retry behavior,
+/// concurrency, and scheduling options.
 class OutboxConfig {
   const OutboxConfig({
     this.retry = const RetryPolicy(),
@@ -200,10 +240,21 @@ class OutboxConfig {
     this.pauseOnNoNetwork = false,
   });
 
+  /// Retry policy for failed entries.
   final RetryPolicy retry;
+
+  /// Maximum number of entries to process concurrently.
   final int concurrency;
+
+  /// Whether to automatically start processing when entries are enqueued.
   final bool autoStart;
+
+  /// Maximum time an entry can be in "processing" status before being reset.
   final Duration lockTimeout;
+
+  /// Interval between processing cycles.
   final Duration heartbeat;
+
+  /// Whether to pause processing when network is unavailable.
   final bool pauseOnNoNetwork;
 }

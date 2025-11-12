@@ -47,8 +47,12 @@ class MemoryStore implements OutboxStore {
   }) async {
     final entry = _entries[id];
     if (entry != null) {
+      // If nextAttempt is provided, status should be queued for retry
+      // Otherwise, it's a permanent failure
       _entries[id] = entry.copyWith(
-        status: OutboxEntryStatus.failed,
+        status: nextAttempt != null
+            ? OutboxEntryStatus.queued
+            : OutboxEntryStatus.failed,
         error: error,
         nextAttemptAt: nextAttempt,
       );

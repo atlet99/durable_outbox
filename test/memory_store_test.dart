@@ -336,9 +336,9 @@ void main() {
 
       // Get initial count
       final count = await store.watchCount(channel: 'channel1').first.timeout(
-        const Duration(seconds: 1),
-        onTimeout: () => 0,
-      );
+            const Duration(seconds: 1),
+            onTimeout: () => 0,
+          );
       expect(count, equals(1));
     });
 

@@ -4,6 +4,9 @@ import 'dart:io';
 import 'utils/backoff.dart';
 
 /// Configuration for retry behavior.
+///
+/// Controls how failed entries are retried, including backoff strategy
+/// and maximum attempt limits.
 class RetryPolicy {
   const RetryPolicy({
     this.baseDelay = const Duration(milliseconds: 500),
