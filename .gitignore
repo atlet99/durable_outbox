@@ -27,3 +27,16 @@ doc/api/
 
 .flutter-plugins
 .flutter-plugins-dependencies
+
+# Binary files
+*.bin
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.lib
+*.obj
+*.pdb
+*.exp
+*.lib
