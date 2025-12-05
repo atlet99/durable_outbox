@@ -314,7 +314,75 @@ class SqliteStore implements OutboxStore {
     );
   }
 
+  @override
+  Future<Map<OutboxEntryStatus, int>> getCountsByStatus({
+    String? channel,
+  }) async {
+    final db = _db;
+    if (db == null) {
+      return {};
+    }
+
+    final query = channel != null
+        ? '''
+          SELECT status, COUNT(*) as count 
+          FROM outbox_entries 
+          WHERE channel = ?
+          GROUP BY status
+        '''
+        : '''
+          SELECT status, COUNT(*) as count 
+          FROM outbox_entries 
+          GROUP BY status
+        ''';
+
+    final rows = channel != null
+        ? db.select(query, [channel])
+        : db.select(query);
+
+    final result = <OutboxEntryStatus, int>{};
+    for (final row in rows) {
+      final statusName = row['status'] as String;
+      final count = row['count'] as int;
+      final status = OutboxEntryStatus.values.firstWhere(
+        (e) => e.name == statusName,
+      );
+      result[status] = count;
+    }
+
+    return result;
+  }
+
+  @override
+  Stream<Map<OutboxEntryStatus, int>> watchCountsByStatus({
+    String? channel,
+  }) {
+    return Stream<Map<OutboxEntryStatus, int>>.multi((controller) {
+      // Emit initial counts
+      getCountsByStatus(channel: channel).then((counts) {
+        if (!controller.isClosed) {
+          controller.add(counts);
+        }
+      });
+
+      // Listen to updates
+      final subscription = _countController.stream.listen((_) {
+        getCountsByStatus(channel: channel).then((counts) {
+          if (!controller.isClosed) {
+            controller.add(counts);
+          }
+        });
+      });
+
+      // Cancel subscription when stream is closed
+      controller.onCancel = () {
+        subscription.cancel();
+      };
+    }).distinct();
+  }
+
   void _notifyCount() {
+
     if (!_countController.isClosed) {
       _countController.add(0); // Trigger recalculation
     }

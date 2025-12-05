@@ -153,22 +153,24 @@ class DurableOutbox {
 
   /// Watches the outbox state.
   Stream<OutboxState> watch() {
-    // Simple implementation: combine store counts with scheduler state
-    return store.watchCount().map((count) {
+    return store.watchCountsByStatus().map((countsByStatus) {
       final isPaused = _scheduler?.isPaused ?? false;
       final isRunning = _scheduler?.isRunning ?? false;
 
-      // For MVP, we'll use total count as queued count
-      // In future versions, we can track status-specific counts
+      final queuedCount = countsByStatus[OutboxEntryStatus.queued] ?? 0;
+      final processingCount = countsByStatus[OutboxEntryStatus.processing] ?? 0;
+      final failedCount = countsByStatus[OutboxEntryStatus.failed] ?? 0;
+
       return OutboxState(
         isPaused: isPaused,
         isRunning: isRunning,
-        queuedCount: count,
-        processingCount: 0, // TODO: track processing count
-        failedCount: 0, // TODO: track failed count
+        queuedCount: queuedCount,
+        processingCount: processingCount,
+        failedCount: failedCount,
       );
     });
   }
+
 
   String _generateId() {
     return _uuid.v4();
