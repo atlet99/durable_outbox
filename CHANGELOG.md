@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2025-12-05
+
+### Added
+
+- **Enhanced State Tracking**: New methods for accurate status-specific entry counts
+  - `OutboxStore.getCountsByStatus()` - Get counts grouped by entry status
+  - `OutboxStore.watchCountsByStatus()` - Stream real-time status-specific counts
+  - Support for channel-based filtering in count methods
+- New example `state_tracking_example.dart` demonstrating real-time state monitoring
+- Comprehensive test suite for state tracking (6 new tests)
+
+### Changed
+
+- **Breaking**: `DurableOutbox.watch()` now provides accurate counts for `processingCount` and `failedCount`
+  - Previously these fields were always `0`
+  - Now they reflect actual entry counts in each status
+- Improved `OutboxState` accuracy with real-time status tracking
+
+### Fixed
+
+- Fixed inaccurate state reporting in `DurableOutbox.watch()` stream
+
 ## [0.1.1] - 2025-01-13
 
 ### Changed

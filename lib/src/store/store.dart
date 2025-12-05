@@ -37,4 +37,16 @@ abstract class OutboxStore {
 
   /// Watches the count of entries, optionally filtered by channel.
   Stream<int> watchCount({String? channel});
+
+  /// Gets the count of entries grouped by status.
+  ///
+  /// Returns a map where keys are [OutboxEntryStatus] values and values are counts.
+  /// Optionally filtered by channel.
+  Future<Map<OutboxEntryStatus, int>> getCountsByStatus({String? channel});
+
+  /// Watches the count of entries grouped by status.
+  ///
+  /// Returns a stream of maps where keys are [OutboxEntryStatus] values and values are counts.
+  /// Optionally filtered by channel.
+  Stream<Map<OutboxEntryStatus, int>> watchCountsByStatus({String? channel});
 }
