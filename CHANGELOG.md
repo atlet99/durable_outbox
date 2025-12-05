@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed inaccurate state reporting in `DurableOutbox.watch()` stream
+- Fixed missing `getCountsByStatus()` and `watchCountsByStatus()` implementations in `SqliteStore` stub
+- Fixed unused import warning in `state_tracking_example.dart`
 
 ## [0.1.1] - 2025-01-13
 
