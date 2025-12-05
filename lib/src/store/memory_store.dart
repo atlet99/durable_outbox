@@ -165,7 +165,6 @@ class MemoryStore implements OutboxStore {
   }
 
   void _notifyCount() {
-
     if (!_countController.isClosed) {
       _countController.add(_entries.length);
     }

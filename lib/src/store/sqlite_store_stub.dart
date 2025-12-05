@@ -44,5 +44,13 @@ class SqliteStore implements OutboxStore {
   Stream<int> watchCount({String? channel}) =>
       throw UnsupportedError('Not supported');
 
+  @override
+  Future<Map<OutboxEntryStatus, int>> getCountsByStatus({String? channel}) =>
+      throw UnsupportedError('Not supported');
+
+  @override
+  Stream<Map<OutboxEntryStatus, int>> watchCountsByStatus({String? channel}) =>
+      throw UnsupportedError('Not supported');
+
   Future<void> close() => throw UnsupportedError('Not supported');
 }

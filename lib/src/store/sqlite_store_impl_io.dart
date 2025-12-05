@@ -336,9 +336,8 @@ class SqliteStore implements OutboxStore {
           GROUP BY status
         ''';
 
-    final rows = channel != null
-        ? db.select(query, [channel])
-        : db.select(query);
+    final rows =
+        channel != null ? db.select(query, [channel]) : db.select(query);
 
     final result = <OutboxEntryStatus, int>{};
     for (final row in rows) {
@@ -382,7 +381,6 @@ class SqliteStore implements OutboxStore {
   }
 
   void _notifyCount() {
-
     if (!_countController.isClosed) {
       _countController.add(0); // Trigger recalculation
     }

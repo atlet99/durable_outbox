@@ -171,7 +171,6 @@ class DurableOutbox {
     });
   }
 
-
   String _generateId() {
     return _uuid.v4();
   }
