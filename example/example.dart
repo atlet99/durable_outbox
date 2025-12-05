@@ -4,7 +4,7 @@ import 'dart:io' as io;
 import 'package:durable_outbox/durable_outbox.dart';
 import 'package:path/path.dart' as path;
 
-/// Simple HTTP client implementation.
+/// Simple HTTP client implementation for the example.
 class SimpleHttpClient implements HttpClient {
   @override
   Future<HttpResponse> request({
@@ -48,51 +48,44 @@ class SimpleHttpClient implements HttpClient {
 }
 
 Future<void> main() async {
+  // Use a temporary directory for the database
   final tempDir = io.Directory.systemTemp;
-  final dbPath = path.join(tempDir.path, 'orders_outbox.db');
+  final dbPath = path.join(tempDir.path, 'outbox.db');
 
+  // Create outbox with SQLite store
   final outbox = DurableOutbox(
     store: SqliteStore(dbPath: dbPath),
     transport: HttpTransport(
-      endpoint: Uri.parse('https://api.example.com/orders'),
+      endpoint: Uri.parse('https://api.example.com/outbox'),
       authHeaders: () async => {'Authorization': 'Bearer your-token-here'},
       client: SimpleHttpClient(),
     ),
     config: const OutboxConfig(
       concurrency: 3,
       autoStart: true,
+      pauseOnNoNetwork: false,
     ),
   );
 
   await outbox.init();
 
-  // Enqueue multiple orders
-  for (var i = 1; i <= 5; i++) {
-    await outbox.enqueue(
-      channel: 'orders',
-      payload: {
-        'action': 'create',
-        'orderId': 'o-$i',
-        'items': ['item1', 'item2'],
-      },
-      idempotencyKey: 'orders:o-$i',
-      priority: i, // Higher priority for later orders
-    );
-    print('Enqueued order o-$i');
-  }
+  // Enqueue an entry
+  final id = await outbox.enqueue(
+    channel: 'orders',
+    payload: {'action': 'create', 'orderId': 'o-123'},
+    idempotencyKey: 'orders:o-123',
+  );
 
-  // Manually trigger processing
-  await outbox.drain();
+  print('Enqueued entry with ID: $id');
 
-  // Watch state
-  outbox.watch().listen((state) {
-    print(
-      'State: paused=${state.isPaused}, running=${state.isRunning}, queued=${state.queuedCount}',
-    );
+  // Watch queue count
+  outbox.store.watchCount(channel: 'orders').listen((count) {
+    print('Queue count: $count');
   });
 
-  // Wait for processing
-  await Future.delayed(const Duration(seconds: 10));
+  // Wait a bit for processing
+  await Future.delayed(const Duration(seconds: 5));
 
+  // Cleanup
   await outbox.close();
 }

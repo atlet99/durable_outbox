@@ -26,7 +26,7 @@ Add `durable_outbox` to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  durable_outbox: ^0.1.0
+  durable_outbox: ^0.1.1
 ```
 
 Then run:
@@ -467,7 +467,7 @@ await outbox.close();
 | Platform          | Store                   | Status            |
 | ----------------- | ----------------------- | ----------------- |
 | Dart CLI / Server | `SqliteStore` (sqlite3) | ✅ Fully supported |
-| Flutter Mobile    | `SqliteStore` (sqflite) | ✅ Fully supported |
+| Flutter Mobile    | `SqliteStore` (sqlite3) | ✅ Fully supported |
 | Flutter Desktop   | `SqliteStore` (sqlite3) | ✅ Fully supported |
 | Flutter Web       | `MemoryStore`           | ✅ Basic support   |
 | Testing           | `MemoryStore`           | ✅ Fully supported |

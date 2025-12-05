@@ -1,8 +1,13 @@
 import '../models.dart';
 
 /// Abstract interface for outbox storage.
+///
+/// Implementations provide persistent or in-memory storage for outbox entries.
+/// See [SqliteStore] for SQLite-based storage and [MemoryStore] for in-memory storage.
 abstract class OutboxStore {
   /// Initializes the store (e.g., creates tables, opens database).
+  ///
+  /// Must be called before using any other methods.
   Future<void> init();
 
   /// Inserts a new entry into the store.

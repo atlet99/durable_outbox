@@ -70,13 +70,16 @@ void main() {
 
       final now = DateTime.now();
       final nextAttempt = policy.calculateNextAttempt(
-        currentAttempt: 10, // High attempt number
+        currentAttempt: 9, // One less than maxAttempts
         now: now,
         previousDelay: const Duration(seconds: 2), // Previous delay exceeds max
       );
 
       final delay = nextAttempt.difference(now);
-      expect(delay.inSeconds, lessThanOrEqualTo(2)); // Should be capped
+      expect(
+        delay.inSeconds,
+        lessThanOrEqualTo(1),
+      ); // Should be capped at maxDelay
     });
 
     test('should retry on 5xx status codes', () {

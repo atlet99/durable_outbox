@@ -1,12 +1,22 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
-import 'package:sqflite/sqflite.dart';
+import 'package:sqlite3/sqlite3.dart';
 
 import '../models.dart';
 import 'store.dart';
 
-/// SQLite implementation of [OutboxStore].
+/// SQLite implementation of [OutboxStore] using sqlite3 package.
+///
+/// This implementation works with pure Dart (CLI/Server) applications.
+/// Provides persistent storage for outbox entries using SQLite.
+///
+/// Example:
+/// ```dart
+/// final store = SqliteStore(dbPath: '/path/to/outbox.db');
+/// await store.init();
+/// ```
 class SqliteStore implements OutboxStore {
   SqliteStore({required this.dbPath});
 
@@ -17,18 +27,30 @@ class SqliteStore implements OutboxStore {
 
   @override
   Future<void> init() async {
-    _db = await openDatabase(
-      dbPath,
-      version: 1,
-      onCreate: _onCreate,
-    );
+    // Ensure parent directory exists
+    final file = File(dbPath);
+    if (!await file.parent.exists()) {
+      await file.parent.create(recursive: true);
+    }
+
+    _db = sqlite3.open(dbPath);
+
+    // Check if tables exist, if not create them
+    final tables = _db!.select('''
+      SELECT name FROM sqlite_master 
+      WHERE type='table' AND name='outbox_entries'
+    ''');
+
+    if (tables.isEmpty) {
+      _onCreate();
+    }
 
     // Start watching for changes
     _startWatching();
   }
 
-  Future<void> _onCreate(Database db, int version) async {
-    await db.execute('''
+  void _onCreate() {
+    _db!.execute('''
       CREATE TABLE outbox_entries (
         id TEXT PRIMARY KEY,
         channel TEXT NOT NULL,
@@ -44,12 +66,12 @@ class SqliteStore implements OutboxStore {
       )
     ''');
 
-    await db.execute('''
+    _db!.execute('''
       CREATE INDEX idx_status_next_attempt 
       ON outbox_entries(status, next_attempt_at)
     ''');
 
-    await db.execute('''
+    _db!.execute('''
       CREATE INDEX idx_channel_priority_next 
       ON outbox_entries(channel, priority DESC, next_attempt_at)
     ''');
@@ -73,11 +95,25 @@ class SqliteStore implements OutboxStore {
       throw StateError('Store not initialized. Call init() first.');
     }
 
-    await db.insert(
-      'outbox_entries',
-      _entryToMap(entry),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    final map = _entryToMap(entry);
+    db.execute('''
+      INSERT OR REPLACE INTO outbox_entries 
+      (id, channel, payload, headers, idempotency_key, priority, attempt, 
+       next_attempt_at, created_at, status, error)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', [
+      map['id'],
+      map['channel'],
+      map['payload'],
+      map['headers'],
+      map['idempotency_key'],
+      map['priority'],
+      map['attempt'],
+      map['next_attempt_at'],
+      map['created_at'],
+      map['status'],
+      map['error'],
+    ]);
     _notifyCount();
   }
 
@@ -88,12 +124,26 @@ class SqliteStore implements OutboxStore {
       throw StateError('Store not initialized. Call init() first.');
     }
 
-    await db.update(
-      'outbox_entries',
-      _entryToMap(entry),
-      where: 'id = ?',
-      whereArgs: [entry.id],
-    );
+    final map = _entryToMap(entry);
+    db.execute('''
+      UPDATE outbox_entries 
+      SET channel = ?, payload = ?, headers = ?, idempotency_key = ?, 
+          priority = ?, attempt = ?, next_attempt_at = ?, created_at = ?, 
+          status = ?, error = ?
+      WHERE id = ?
+    ''', [
+      map['channel'],
+      map['payload'],
+      map['headers'],
+      map['idempotency_key'],
+      map['priority'],
+      map['attempt'],
+      map['next_attempt_at'],
+      map['created_at'],
+      map['status'],
+      map['error'],
+      entry.id,
+    ]);
     _notifyCount();
   }
 
@@ -104,14 +154,13 @@ class SqliteStore implements OutboxStore {
       throw StateError('Store not initialized. Call init() first.');
     }
 
-    await db.update(
-      'outbox_entries',
-      {
-        'status': OutboxEntryStatus.done.name,
-        'error': null,
-      },
-      where: 'id = ?',
-      whereArgs: [id],
+    db.execute(
+      '''
+      UPDATE outbox_entries 
+      SET status = ?, error = NULL
+      WHERE id = ?
+    ''',
+      [OutboxEntryStatus.done.name, id],
     );
     _notifyCount();
   }
@@ -127,16 +176,22 @@ class SqliteStore implements OutboxStore {
       throw StateError('Store not initialized. Call init() first.');
     }
 
-    await db.update(
-      'outbox_entries',
-      {
-        'status': OutboxEntryStatus.failed.name,
-        'error': error,
-        'next_attempt_at': nextAttempt?.millisecondsSinceEpoch,
-      },
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    // If nextAttempt is provided, status should be queued for retry
+    // Otherwise, it's a permanent failure
+    final status = nextAttempt != null
+        ? OutboxEntryStatus.queued.name
+        : OutboxEntryStatus.failed.name;
+
+    db.execute('''
+      UPDATE outbox_entries 
+      SET status = ?, error = ?, next_attempt_at = ?
+      WHERE id = ?
+    ''', [
+      status,
+      error,
+      nextAttempt?.millisecondsSinceEpoch,
+      id,
+    ]);
     _notifyCount();
   }
 
@@ -148,12 +203,14 @@ class SqliteStore implements OutboxStore {
     }
 
     final nowMs = now.millisecondsSinceEpoch;
-    final rows = await db.query(
-      'outbox_entries',
-      where: 'status = ? AND (next_attempt_at IS NULL OR next_attempt_at <= ?)',
-      whereArgs: [OutboxEntryStatus.queued.name, nowMs],
-      orderBy: 'priority DESC, created_at ASC',
-      limit: limit,
+    final rows = db.select(
+      '''
+      SELECT * FROM outbox_entries 
+      WHERE status = ? AND (next_attempt_at IS NULL OR next_attempt_at <= ?)
+      ORDER BY priority DESC, created_at ASC
+      LIMIT ?
+    ''',
+      [OutboxEntryStatus.queued.name, nowMs, limit],
     );
 
     return rows.map(_mapToEntry).toList();
@@ -167,13 +224,9 @@ class SqliteStore implements OutboxStore {
     }
 
     if (channel != null) {
-      await db.delete(
-        'outbox_entries',
-        where: 'channel = ?',
-        whereArgs: [channel],
-      );
+      db.execute('DELETE FROM outbox_entries WHERE channel = ?', [channel]);
     } else {
-      await db.delete('outbox_entries');
+      db.execute('DELETE FROM outbox_entries');
     }
     _notifyCount();
   }
@@ -212,15 +265,15 @@ class SqliteStore implements OutboxStore {
     }
 
     if (channel != null) {
-      final result = await db.rawQuery(
+      final result = db.select(
         'SELECT COUNT(*) as count FROM outbox_entries WHERE channel = ?',
         [channel],
       );
-      return Sqflite.firstIntValue(result) ?? 0;
+      return result.isNotEmpty ? (result.first['count'] as int) : 0;
     }
 
-    final result = await db.rawQuery('SELECT COUNT(*) as count FROM outbox_entries');
-    return Sqflite.firstIntValue(result) ?? 0;
+    final result = db.select('SELECT COUNT(*) as count FROM outbox_entries');
+    return result.isNotEmpty ? (result.first['count'] as int) : 0;
   }
 
   Map<String, Object?> _entryToMap(OutboxEntry entry) {
@@ -239,25 +292,25 @@ class SqliteStore implements OutboxStore {
     };
   }
 
-  OutboxEntry _mapToEntry(Map<String, Object?> map) {
+  OutboxEntry _mapToEntry(Row row) {
     return OutboxEntry(
-      id: map['id'] as String,
-      channel: map['channel'] as String,
-      payload: jsonDecode(map['payload'] as String),
-      headers: map['headers'] != null
-          ? Map<String, String>.from(jsonDecode(map['headers'] as String))
+      id: row['id'] as String,
+      channel: row['channel'] as String,
+      payload: jsonDecode(row['payload'] as String),
+      headers: row['headers'] != null
+          ? Map<String, String>.from(jsonDecode(row['headers'] as String))
           : null,
-      idempotencyKey: map['idempotency_key'] as String?,
-      priority: map['priority'] as int,
-      attempt: map['attempt'] as int,
-      nextAttemptAt: map['next_attempt_at'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(map['next_attempt_at'] as int)
+      idempotencyKey: row['idempotency_key'] as String?,
+      priority: row['priority'] as int,
+      attempt: row['attempt'] as int,
+      nextAttemptAt: row['next_attempt_at'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(row['next_attempt_at'] as int)
           : null,
-      createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int),
+      createdAt: DateTime.fromMillisecondsSinceEpoch(row['created_at'] as int),
       status: OutboxEntryStatus.values.firstWhere(
-        (e) => e.name == map['status'] as String,
+        (e) => e.name == row['status'] as String,
       ),
-      error: map['error'] as String?,
+      error: row['error'] as String?,
     );
   }
 
@@ -270,7 +323,7 @@ class SqliteStore implements OutboxStore {
   /// Closes the store and releases resources.
   Future<void> close() async {
     _countController.close();
-    await _db?.close();
+    _db?.dispose();
     _db = null;
   }
 }

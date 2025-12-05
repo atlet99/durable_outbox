@@ -57,7 +57,7 @@ bump-version: ## Bump patch version (up to 9), then bump minor version
 	fi; \
 	echo "$(YELLOW)New version: $$new_version$(NC)"; \
 	sed -i '' "s/^version: $$current_version/version: $$new_version/" $(PUBSPEC); \
-	sed -i '' "s/go_http: \^$$current_version/go_http: ^$$new_version/" $(README); \
+	sed -i '' "s/durable_outbox: \^$$current_version/durable_outbox: ^$$new_version/" $(README); \
 	echo "$(GREEN)✓ Version updated in $(PUBSPEC)$(NC)"; \
 	echo "$(GREEN)✓ Version updated in $(README)$(NC)"; \
 	echo "$(GREEN)New version: $$new_version$(NC)"
