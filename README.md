@@ -19,6 +19,7 @@
 - ✅ **Priority queues**: Support for priority-based processing
 - ✅ **Delayed execution**: Schedule entries for future processing
 - ✅ **Observability**: Built-in metrics and state monitoring
+- ✅ **Enhanced State Tracking**: Real-time status-specific counts (v0.2.0+)
 
 ## 📦 Installation
 
@@ -26,7 +27,7 @@ Add `durable_outbox` to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  durable_outbox: ^0.1.1
+  durable_outbox: ^0.2.0
 ```
 
 Then run:
@@ -254,20 +255,37 @@ await outbox.drain();
 Watch queue state and counts:
 
 ```dart
-// Watch overall state
+// Watch overall state with accurate status counts (v0.2.0+)
 outbox.watch().listen((state) {
   print('Paused: ${state.isPaused}');
   print('Running: ${state.isRunning}');
-  print('Queued: ${state.queuedCount}');
-  print('Processing: ${state.processingCount}');
-  print('Failed: ${state.failedCount}');
+  print('Queued: ${state.queuedCount}');        // Entries waiting to be processed
+  print('Processing: ${state.processingCount}'); // Entries currently being sent
+  print('Failed: ${state.failedCount}');        // Permanently failed entries
 });
 
-// Watch queue count
+// Watch queue count for specific channel
 outbox.store.watchCount(channel: 'orders').listen((count) {
   // Update UI badge
   setState(() {
     pendingOrdersCount = count;
+  });
+});
+
+// Get detailed status breakdown (v0.2.0+)
+final counts = await outbox.store.getCountsByStatus();
+print('Queued: ${counts[OutboxEntryStatus.queued]}');
+print('Processing: ${counts[OutboxEntryStatus.processing]}');
+print('Done: ${counts[OutboxEntryStatus.done]}');
+print('Failed: ${counts[OutboxEntryStatus.failed]}');
+
+// Watch status-specific counts in real-time (v0.2.0+)
+outbox.store.watchCountsByStatus(channel: 'orders').listen((counts) {
+  // Update UI with detailed status breakdown
+  setState(() {
+    queuedCount = counts[OutboxEntryStatus.queued] ?? 0;
+    processingCount = counts[OutboxEntryStatus.processing] ?? 0;
+    failedCount = counts[OutboxEntryStatus.failed] ?? 0;
   });
 });
 ```
@@ -373,6 +391,7 @@ See the `example/` directory for complete examples:
 - **`quick_start.dart`** - Basic usage with SQLite store
 - **`http_orders.dart`** - Order processing with multiple entries
 - **`analytics_lowprio.dart`** - Low-priority analytics events with delayed start
+- **`state_tracking_example.dart`** - Real-time state monitoring with status counts (v0.2.0+)
 
 ### Running Examples
 
@@ -385,7 +404,11 @@ dart run example/http_orders.dart
 
 # Analytics example
 dart run example/analytics_lowprio.dart
+
+# State tracking example (v0.2.0+)
+dart run example/state_tracking_example.dart
 ```
+
 
 ## 🔧 Advanced Usage
 
